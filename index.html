@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>HLS Background Video</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -553,6 +554,8 @@
     let isSwitching = false;
     let hlsJsPromise = null;
     let selectedQuality = "auto";
+    let initialPlaybackStarted = false;
+    let initialPlaybackAttempt = 0;
 
     fallbackImageLayer.style.backgroundImage = `url("${POSTER_URL}")`;
 
@@ -569,7 +572,10 @@
       video.autoplay = true;
       video.loop = false;
       video.playsInline = true;
-      video.disablePictureInPicture = true;
+      if ("disablePictureInPicture" in video) {
+        video.disablePictureInPicture = true;
+      }
+
       video.setAttribute("muted", "");
       video.setAttribute("playsinline", "");
       video.setAttribute("webkit-playsinline", "");
@@ -657,9 +663,18 @@
       }, 2500);
     }
 
+    function startOnUserGesture() {
+      if (initialPlaybackStarted) {
+        return;
+      }
+
+      startInitialPlayback();
+    }
+
     function playVideo(video) {
       video.muted = true;
       video.defaultMuted = true;
+      video.setAttribute("muted", "");
 
       const playPromise = video.play();
 
@@ -762,50 +777,19 @@
       });
     }
 
-    function attachSource(player, randomStartTime) {
+    function attachWithHlsJs(player, sourceUrl, randomStartTime) {
       const video = player.video;
-      const sourceUrl = getSelectedSourceUrl();
-      const supportsNativeHls = video.canPlayType("application/vnd.apple.mpegurl") !== "";
-
-      destroyPlayerSource(player);
-      configureVideo(video);
-
-      if (supportsNativeHls) {
-        video.src = sourceUrl;
-        video.load();
-
-        return new Promise(function (resolve) {
-          let metadataLoaded = false;
-
-          video.addEventListener("loadedmetadata", function () {
-            metadataLoaded = true;
-            seekNativeVideo(video, randomStartTime)
-              .then(function () {
-                return playVideo(video);
-              })
-              .then(function () {
-                return waitForReady(video);
-              })
-              .then(resolve);
-          }, { once: true });
-
-          window.setTimeout(function () {
-            if (!metadataLoaded) {
-              playVideo(video)
-                .then(function () {
-                  return waitForReady(video);
-                })
-                .then(resolve);
-            }
-          }, 3500);
-        });
-      }
 
       return loadHlsJs().then(function () {
         if (!window.Hls || !Hls.isSupported()) {
           console.log("HLS is not supported in this browser. Poster fallback is shown.");
           videoCover.classList.add("hidden");
           return;
+        }
+
+        if (player.hls) {
+          player.hls.destroy();
+          player.hls = null;
         }
 
         player.hls = new Hls({
@@ -837,6 +821,98 @@
           });
         });
       });
+    }
+
+    function attachSource(player, randomStartTime) {
+      const video = player.video;
+      const sourceUrl = getSelectedSourceUrl();
+      const supportsNativeHls =
+        video.canPlayType("application/vnd.apple.mpegurl") !== "" ||
+        video.canPlayType("application/x-mpegURL") !== "";
+
+      destroyPlayerSource(player);
+      configureVideo(video);
+
+      if (supportsNativeHls) {
+        video.src = sourceUrl;
+        video.load();
+
+        return new Promise(function (resolve) {
+          let settled = false;
+          let metadataLoaded = false;
+
+          function cleanup() {
+            video.removeEventListener("loadedmetadata", onMetadata);
+            video.removeEventListener("error", onNativeError);
+          }
+
+          function settleWithNative() {
+            if (settled) {
+              return;
+            }
+
+            settled = true;
+            cleanup();
+            waitForReady(video).then(resolve);
+          }
+
+          function fallbackToHlsJs(reason) {
+            if (settled) {
+              return;
+            }
+
+            settled = true;
+            cleanup();
+            console.log("Native HLS fallback to hls.js:", reason);
+            destroyPlayerSource(player);
+            configureVideo(video);
+            attachWithHlsJs(player, sourceUrl, randomStartTime).then(resolve);
+          }
+
+          function startWithoutSeek(reason) {
+            if (settled) {
+              return;
+            }
+
+            settled = true;
+            cleanup();
+            console.log("Native HLS starting without random seek:", reason);
+            playVideo(video)
+              .then(function () {
+                return waitForReady(video);
+              })
+              .then(resolve);
+          }
+
+          function onMetadata() {
+            metadataLoaded = true;
+            seekNativeVideo(video, randomStartTime)
+              .then(function () {
+                return playVideo(video);
+              })
+              .then(settleWithNative);
+          }
+
+          function onNativeError() {
+            fallbackToHlsJs(video.error || "native video error");
+          }
+
+          video.addEventListener("loadedmetadata", onMetadata, { once: true });
+          video.addEventListener("error", onNativeError, { once: true });
+
+          playVideo(video).catch(function () {
+            // playVideo already logs autoplay errors. Keep loading via metadata if possible.
+          });
+
+          window.setTimeout(function () {
+            if (!metadataLoaded) {
+              startWithoutSeek("metadata timeout");
+            }
+          }, 5000);
+        });
+      }
+
+      return attachWithHlsJs(player, sourceUrl, randomStartTime);
     }
 
     function crossfadeTo(playerIndex) {
@@ -909,15 +985,36 @@
       connection.addEventListener("change", updateQualityRecommendation);
     }
 
-    attachSource(players[activePlayerIndex], getRandomStartTime())
-      .then(function () {
-        players[activePlayerIndex].layer.classList.add("visible");
-        revealVideo();
-      })
-      .catch(function (error) {
-        console.log("Failed to start background video:", error);
-        hideCoverFallback();
-      });
+    function startInitialPlayback() {
+      if (initialPlaybackStarted) {
+        return;
+      }
+
+      initialPlaybackAttempt += 1;
+
+      attachSource(players[activePlayerIndex], getRandomStartTime())
+        .then(function () {
+          initialPlaybackStarted = true;
+          players[activePlayerIndex].layer.classList.add("visible");
+          revealVideo();
+        })
+        .catch(function (error) {
+          console.log("Failed to start background video:", error);
+
+          if (initialPlaybackAttempt < 3) {
+            window.setTimeout(startInitialPlayback, 900);
+          } else {
+            hideCoverFallback();
+          }
+        });
+    }
+
+    ["pointerdown", "touchstart", "click", "keydown"].forEach(function (eventName) {
+      window.addEventListener(eventName, startOnUserGesture, { once: true, passive: true });
+    });
+
+    window.setTimeout(startInitialPlayback, 0);
+    window.setTimeout(startInitialPlayback, 900);
   </script>
 </body>
 </html>
