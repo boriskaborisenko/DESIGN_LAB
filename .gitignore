@@ -1,0 +1,6 @@
+# Keep RAW/ in the repo, but ignore all raw source videos/files inside it.
+RAW/*
+!RAW/.gitkeep
+
+# macOS
+.DS_Store

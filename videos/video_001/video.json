@@ -1,0 +1,13 @@
+{
+  "id": "video_001",
+  "source": "RAW/BIG_VIDEO.mp4",
+  "playlist": "videos/video_001/segments/index.m3u8",
+  "poster": "videos/video_001/segments/poster.jpg",
+  "originalDurationSeconds": 675.7,
+  "trimmedDurationSeconds": 655.7,
+  "startTrimSeconds": 10,
+  "endTrimSeconds": 10,
+  "segmentSeconds": 10,
+  "width": 1280,
+  "crf": 24
+}
