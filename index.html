@@ -124,28 +124,54 @@
     }
 
     .content h1 {
-      max-width: 900px;
-      font-size: clamp(38px, 6.8vw, 94px);
-      font-weight: 900;
-      line-height: 0.9;
-      letter-spacing: -0.065em;
-      margin-bottom: 24px;
+      width: min(840px, calc(100vw - 64px));
+      max-width: 100%;
+      margin-bottom: 30px;
+      color: rgba(255, 255, 255, 0.94);
+      text-align: center;
+      opacity: 0;
+      transform: translateY(18px);
+      animation: contentReveal 0.9s ease 0.12s forwards;
     }
 
-    .content h1 .accent-word {
-      display: inline-block;
+    .title-kicker,
+    .title-main,
+    .title-sub {
+      display: block;
+      overflow: visible;
+    }
+
+    .title-kicker,
+    .title-sub {
+      font-size: clamp(38px, 6.4vw, 82px);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.052em;
+    }
+
+    .title-main {
+      margin: 0.16em 0 0.13em;
       font-family: "Playfair Display", Georgia, serif;
+      font-size: clamp(46px, 7.6vw, 102px);
       font-style: italic;
       font-weight: 800;
-      letter-spacing: -0.08em;
-      transform: translateY(0.04em);
+      line-height: 1.02;
+      letter-spacing: -0.062em;
+      color: #fff;
+      text-shadow: 0 10px 40px rgba(0, 0, 0, 0.26);
+    }
+
+    .title-shine {
+      display: inline-block;
     }
 
     .content p {
       max-width: 720px;
       font-size: clamp(15px, 1.55vw, 20px);
       line-height: 1.5;
-      opacity: 0.92;
+      opacity: 0;
+      transform: translateY(14px);
+      animation: contentReveal 0.9s ease 0.34s forwards;
     }
 
     .actions {
@@ -154,6 +180,9 @@
       align-items: center;
       gap: 12px;
       margin-top: 30px;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: contentReveal 0.75s ease 0.95s forwards;
     }
 
     .button {
@@ -204,6 +233,9 @@
       background: rgba(0, 0, 0, 0.24);
       backdrop-filter: blur(12px);
       text-align: left;
+      opacity: 0;
+      transform: translateY(-10px);
+      animation: panelReveal 0.75s ease 0.68s forwards;
     }
 
     .quality-title {
@@ -266,13 +298,77 @@
       font-weight: 700;
     }
 
+    @keyframes contentReveal {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes panelReveal {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+
+
+    @media (prefers-reduced-motion: reduce) {
+      .content h1,
+      .content p,
+      .actions,
+      .quality-panel {
+        animation: none;
+      }
+
+      .content h1,
+      .content p,
+      .actions,
+      .quality-panel {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @media (max-width: 1120px) {
+      .content h1 {
+        width: min(700px, calc(100vw - 56px));
+      }
+
+      .title-kicker,
+      .title-sub {
+        font-size: clamp(36px, 7.2vw, 68px);
+      }
+
+      .title-main {
+        font-size: clamp(44px, 8.6vw, 82px);
+      }
+    }
+
     @media (max-width: 768px) {
       .hero {
         min-height: 520px;
       }
 
+      .content {
+        padding-inline: 20px;
+      }
+
       .content h1 {
-        font-size: 40px;
+        width: 100%;
+      }
+
+      .title-kicker,
+      .title-sub {
+        font-size: clamp(34px, 10vw, 48px);
+        letter-spacing: -0.048em;
+      }
+
+      .title-main {
+        margin: 0.18em 0 0.15em;
+        font-size: clamp(40px, 11.5vw, 58px);
+        letter-spacing: -0.058em;
       }
 
       .content p {
@@ -286,10 +382,21 @@
         padding: 8px;
       }
     }
+
+    @media (max-width: 480px) {
+      .title-kicker,
+      .title-sub {
+        font-size: clamp(32px, 11vw, 42px);
+      }
+
+      .title-main {
+        font-size: clamp(38px, 13vw, 50px);
+      }
+    }
   </style>
 </head>
 
-<body>
+<body class="is-loading">
   <section class="hero">
     <div class="fallback-image-layer" id="fallbackImageLayer"></div>
 
@@ -306,7 +413,13 @@
     <div class="overlay"></div>
 
     <div class="content">
-      <h1>HLS <span class="accent-word">Background</span> Video</h1>
+      <h1 aria-label="HLS Background Video">
+        <span class="title-shine">
+          <span class="title-kicker">HLS</span>
+          <span class="title-main">Background</span>
+          <span class="title-sub">Video</span>
+        </span>
+      </h1>
       <p>
         Streams adaptive HLS segments from a random timeline point, keeps mobile autoplay stable, and crossfades every jump for a cleaner background loop.
       </p>
@@ -368,6 +481,7 @@
     const HLS_JS_URL = "https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js";
 
     const fallbackImageLayer = document.getElementById("fallbackImageLayer");
+    const pageBody = document.body;
     const videoCover = document.getElementById("videoCover");
     const refreshVideoButton = document.getElementById("refreshVideoButton");
     const qualityButtons = Array.from(document.querySelectorAll("[data-quality]"));
@@ -481,6 +595,8 @@
     }
 
     function revealVideo() {
+      pageBody.classList.remove("is-loading");
+
       window.setTimeout(function () {
         videoCover.classList.add("hidden");
       }, COVER_HIDE_DELAY);
