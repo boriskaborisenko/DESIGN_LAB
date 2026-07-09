@@ -2,5 +2,9 @@
 RAW/*
 !RAW/.gitkeep
 
+# Keep generated video folders, but do not commit raw/full source copies.
+videos/*/full/*
+!videos/*/full/.gitkeep
+
 # macOS
 .DS_Store

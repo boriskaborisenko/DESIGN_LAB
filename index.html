@@ -40,6 +40,7 @@
     }
 
     .fallback-image-layer,
+    .video-stage,
     .video-layer,
     .video-cover,
     .overlay {
@@ -55,12 +56,17 @@
       background-color: #111;
     }
 
-    .video-layer {
+    .video-stage {
       z-index: 2;
       overflow: hidden;
       background: #000;
+    }
+
+    .video-layer {
+      overflow: hidden;
       opacity: 0;
-      transition: opacity 0.9s ease;
+      transition: opacity 1.1s ease;
+      will-change: opacity;
     }
 
     .video-layer.visible {
@@ -142,11 +148,18 @@
       opacity: 0.92;
     }
 
+    .actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-top: 30px;
+    }
+
     .button {
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      margin-top: 34px;
       padding: 14px 24px;
       border-radius: 999px;
       border: 1px solid rgba(255, 255, 255, 0.75);
@@ -175,17 +188,102 @@
       transform: rotate(180deg);
     }
 
+    .quality-panel {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      z-index: 6;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      width: 238px;
+      padding: 9px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 16px;
+      background: rgba(0, 0, 0, 0.24);
+      backdrop-filter: blur(12px);
+      text-align: left;
+    }
+
+    .quality-title {
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.68;
+    }
+
+    .quality-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    .quality-button {
+      min-width: 46px;
+      padding: 5px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 999px;
+      color: rgba(255, 255, 255, 0.88);
+      background: rgba(255, 255, 255, 0.06);
+      font: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.18s ease;
+    }
+
+    .quality-button:hover,
+    .quality-button.active {
+      color: #111;
+      border-color: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .quality-recommendation {
+      max-width: 360px;
+      font-size: 11px;
+      line-height: 1.25;
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .quality-recommendation-label,
+    .quality-recommendation-value {
+      display: block;
+    }
+
+    .quality-recommendation-label {
+      opacity: 0.62;
+    }
+
+    .quality-recommendation-value {
+      margin-top: 2px;
+      color: rgba(255, 255, 255, 0.86);
+      font-weight: 700;
+    }
+
     @media (max-width: 768px) {
       .hero {
         min-height: 520px;
       }
 
       .content h1 {
-        font-size: 46px;
+        font-size: 40px;
       }
 
       .content p {
-        font-size: 16px;
+        font-size: 15px;
+      }
+
+      .quality-panel {
+        top: 12px;
+        right: 12px;
+        width: 210px;
+        padding: 8px;
       }
     }
   </style>
@@ -195,19 +293,13 @@
   <section class="hero">
     <div class="fallback-image-layer" id="fallbackImageLayer"></div>
 
-    <div class="video-layer" id="videoLayer">
-      <video
-        id="bgVideo"
-        autoplay
-        muted
-        playsinline
-        webkit-playsinline
-        preload="metadata"
-        poster="videos/video_001/segments/poster.jpg"
-        disablepictureinpicture
-        disableremoteplayback
-        x-webkit-airplay="deny"
-      ></video>
+    <div class="video-stage" id="videoStage">
+      <div class="video-layer" id="videoLayerA">
+        <video id="bgVideoA" autoplay muted playsinline webkit-playsinline preload="metadata" poster="videos/video_001/segments/poster.jpg" disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"></video>
+      </div>
+      <div class="video-layer" id="videoLayerB">
+        <video id="bgVideoB" autoplay muted playsinline webkit-playsinline preload="metadata" poster="videos/video_001/segments/poster.jpg" disablepictureinpicture disableremoteplayback x-webkit-airplay="deny"></video>
+      </div>
     </div>
 
     <div class="video-cover" id="videoCover"></div>
@@ -216,58 +308,179 @@
     <div class="content">
       <h1>HLS <span class="accent-word">Background</span> Video</h1>
       <p>
-        Streams lightweight HLS segments from a random timeline point, keeps mobile autoplay stable, and falls back to a poster when needed.
+        Streams adaptive HLS segments from a random timeline point, keeps mobile autoplay stable, and crossfades every jump for a cleaner background loop.
       </p>
-      <button class="button" id="refreshVideoButton" type="button" aria-label="Start background video from another random moment">
-        <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 12a9 9 0 0 1-15.4 6.4" />
-          <path d="M3 12A9 9 0 0 1 18.4 5.6" />
-          <path d="M18 2v4h4" />
-          <path d="M6 22v-4H2" />
-        </svg>
-        <span>Randomize Background</span>
-      </button>
+
+      <div class="actions">
+        <button class="button" id="refreshVideoButton" type="button" aria-label="Start background video from another random moment">
+          <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 0 1-15.4 6.4" />
+            <path d="M3 12A9 9 0 0 1 18.4 5.6" />
+            <path d="M18 2v4h4" />
+            <path d="M6 22v-4H2" />
+          </svg>
+          <span>Randomize Background</span>
+        </button>
+
+      </div>
+    </div>
+
+    <div class="quality-panel" aria-label="Background video quality">
+      <div class="quality-title">Stream quality</div>
+      <div class="quality-buttons" id="qualityButtons">
+        <button class="quality-button active" type="button" data-quality="auto">Auto</button>
+        <button class="quality-button" type="button" data-quality="480p">480p</button>
+        <button class="quality-button" type="button" data-quality="720p">720p</button>
+        <button class="quality-button" type="button" data-quality="1080p">1080p</button>
+      </div>
+      <div class="quality-recommendation" id="qualityRecommendation">
+        <span class="quality-recommendation-label">Recommended now</span>
+        <span class="quality-recommendation-value" id="qualityRecommendationValue"></span>
+      </div>
     </div>
   </section>
 
   <script>
-    const HLS_URL = "videos/video_001/segments/index.m3u8";
+    const QUALITY_SOURCES = {
+      auto: {
+        label: "Auto",
+        url: "videos/video_001/segments/master.m3u8"
+      },
+      "480p": {
+        label: "480p",
+        url: "videos/video_001/segments/480p/index.m3u8"
+      },
+      "720p": {
+        label: "720p",
+        url: "videos/video_001/segments/720p/index.m3u8"
+      },
+      "1080p": {
+        label: "1080p",
+        url: "videos/video_001/segments/1080p/index.m3u8"
+      }
+    };
+
     const POSTER_URL = "videos/video_001/segments/poster.jpg";
     const VIDEO_DURATION_SECONDS = 655.7;
     const RANDOM_END_GUARD_SECONDS = 20;
     const COVER_HIDE_DELAY = 500;
+    const CROSSFADE_MS = 1100;
     const HLS_JS_URL = "https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js";
 
-    const video = document.getElementById("bgVideo");
-    const videoLayer = document.getElementById("videoLayer");
-    const videoCover = document.getElementById("videoCover");
     const fallbackImageLayer = document.getElementById("fallbackImageLayer");
+    const videoCover = document.getElementById("videoCover");
     const refreshVideoButton = document.getElementById("refreshVideoButton");
+    const qualityButtons = Array.from(document.querySelectorAll("[data-quality]"));
+    const qualityRecommendationValue = document.getElementById("qualityRecommendationValue");
+
+    const players = [
+      {
+        layer: document.getElementById("videoLayerA"),
+        video: document.getElementById("bgVideoA"),
+        hls: null
+      },
+      {
+        layer: document.getElementById("videoLayerB"),
+        video: document.getElementById("bgVideoB"),
+        hls: null
+      }
+    ];
+
+    let activePlayerIndex = 0;
+    let isSwitching = false;
+    let hlsJsPromise = null;
+    let selectedQuality = "auto";
 
     fallbackImageLayer.style.backgroundImage = `url("${POSTER_URL}")`;
 
-    video.controls = false;
-    video.muted = true;
-    video.defaultMuted = true;
-    video.autoplay = true;
-    video.loop = false;
-    video.playsInline = true;
-    video.disablePictureInPicture = true;
-    video.setAttribute("muted", "");
-    video.setAttribute("playsinline", "");
-    video.setAttribute("webkit-playsinline", "");
-    video.setAttribute("disablepictureinpicture", "");
-    video.setAttribute("disableremoteplayback", "");
-    video.setAttribute("x-webkit-airplay", "deny");
+    players.forEach(function (player) {
+      configureVideo(player.video);
+    });
+
+    updateQualityRecommendation();
+
+    function configureVideo(video) {
+      video.controls = false;
+      video.muted = true;
+      video.defaultMuted = true;
+      video.autoplay = true;
+      video.loop = false;
+      video.playsInline = true;
+      video.disablePictureInPicture = true;
+      video.setAttribute("muted", "");
+      video.setAttribute("playsinline", "");
+      video.setAttribute("webkit-playsinline", "");
+      video.setAttribute("disablepictureinpicture", "");
+      video.setAttribute("disableremoteplayback", "");
+      video.setAttribute("x-webkit-airplay", "deny");
+    }
+
+    function getSelectedSourceUrl() {
+      return QUALITY_SOURCES[selectedQuality].url;
+    }
 
     function getRandomStartTime() {
       const maxStart = Math.max(0, VIDEO_DURATION_SECONDS - RANDOM_END_GUARD_SECONDS);
       return Math.floor(Math.random() * maxStart);
     }
 
-    function revealVideo() {
-      videoLayer.classList.add("visible");
+    function getConnectionInfo() {
+      return navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
+    }
 
+    function getRecommendedQuality() {
+      const connection = getConnectionInfo();
+      const width = Math.max(window.innerWidth, window.screen.width || 0);
+      const effectiveType = connection && connection.effectiveType ? connection.effectiveType : "unknown";
+      const downlink = connection && typeof connection.downlink === "number" ? connection.downlink : null;
+      const saveData = Boolean(connection && connection.saveData);
+
+      if (saveData) {
+        return {
+          quality: "480p",
+          reason: "data saver is enabled"
+        };
+      }
+
+      if (effectiveType === "slow-2g" || effectiveType === "2g" || effectiveType === "3g") {
+        return {
+          quality: "480p",
+          reason: "safer for slower mobile networks"
+        };
+      }
+
+      if (downlink !== null && downlink < 3.5) {
+        return {
+          quality: "480p",
+          reason: "lighter for the current connection"
+        };
+      }
+
+      if (width >= 1400 && (downlink === null || downlink >= 8)) {
+        return {
+          quality: "1080p",
+          reason: "best for large screens and fast Wi-Fi"
+        };
+      }
+
+      return {
+        quality: "720p",
+        reason: "balanced quality and speed"
+      };
+    }
+
+    function updateQualityRecommendation() {
+      const recommendation = getRecommendedQuality();
+      qualityRecommendationValue.textContent = `${recommendation.quality} — ${recommendation.reason}`;
+    }
+
+    function updateQualityButtons() {
+      qualityButtons.forEach(function (button) {
+        button.classList.toggle("active", button.dataset.quality === selectedQuality);
+      });
+    }
+
+    function revealVideo() {
       window.setTimeout(function () {
         videoCover.classList.add("hidden");
       }, COVER_HIDE_DELAY);
@@ -279,66 +492,28 @@
       }, 2500);
     }
 
-    function playVideo() {
+    function playVideo(video) {
       video.muted = true;
       video.defaultMuted = true;
 
       const playPromise = video.play();
 
       if (playPromise && typeof playPromise.catch === "function") {
-        playPromise.catch(function (error) {
+        return playPromise.catch(function (error) {
           console.log("Background video autoplay failed:", error);
           hideCoverFallback();
         });
       }
-    }
 
-    function seekAndPlay(randomStartTime) {
-      let playbackRequested = false;
-
-      function requestPlayback() {
-        if (playbackRequested) {
-          return;
-        }
-
-        playbackRequested = true;
-        playVideo();
-      }
-
-      video.addEventListener("seeked", requestPlayback, { once: true });
-      video.addEventListener("canplay", requestPlayback, { once: true });
-
-      try {
-        video.currentTime = randomStartTime;
-      } catch (error) {
-        console.log("Random seek failed, starting from the beginning:", error);
-        requestPlayback();
-      }
-
-      window.setTimeout(requestPlayback, 1200);
-    }
-
-    function startNativeHls(randomStartTime) {
-      let metadataLoaded = false;
-
-      video.src = HLS_URL;
-      video.load();
-
-      video.addEventListener("loadedmetadata", function () {
-        metadataLoaded = true;
-        seekAndPlay(randomStartTime);
-      }, { once: true });
-
-      window.setTimeout(function () {
-        if (!metadataLoaded) {
-          playVideo();
-          hideCoverFallback();
-        }
-      }, 3500);
+      return Promise.resolve();
     }
 
     function loadHlsJs() {
-      return new Promise(function (resolve, reject) {
+      if (hlsJsPromise) {
+        return hlsJsPromise;
+      }
+
+      hlsJsPromise = new Promise(function (resolve, reject) {
         if (window.Hls) {
           resolve(window.Hls);
           return;
@@ -353,67 +528,231 @@
         script.onerror = reject;
         document.head.appendChild(script);
       });
+
+      return hlsJsPromise;
     }
 
-    function startHlsJs(randomStartTime) {
-      const hls = new Hls({
-        startPosition: randomStartTime,
-        capLevelToPlayerSize: true,
-        maxBufferLength: 30,
-        backBufferLength: 30
-      });
+    function destroyPlayerSource(player) {
+      if (player.hls) {
+        player.hls.destroy();
+        player.hls = null;
+      }
 
-      hls.loadSource(HLS_URL);
-      hls.attachMedia(video);
+      player.video.pause();
+      player.video.removeAttribute("src");
+      player.video.load();
+    }
 
-      hls.on(Hls.Events.MANIFEST_PARSED, function () {
-        playVideo();
-      });
-
-      hls.on(Hls.Events.ERROR, function (event, data) {
-        console.log("HLS error:", data);
-
-        if (data.fatal) {
-          hls.destroy();
+    function waitForReady(video) {
+      return new Promise(function (resolve) {
+        if (video.readyState >= 3) {
+          resolve();
+          return;
         }
+
+        const done = function () {
+          cleanup();
+          resolve();
+        };
+
+        const cleanup = function () {
+          video.removeEventListener("canplay", done);
+          video.removeEventListener("playing", done);
+          video.removeEventListener("timeupdate", done);
+        };
+
+        video.addEventListener("canplay", done, { once: true });
+        video.addEventListener("playing", done, { once: true });
+        video.addEventListener("timeupdate", done, { once: true });
+        window.setTimeout(done, 2500);
       });
     }
 
-    video.addEventListener("playing", revealVideo, { once: true });
-    video.addEventListener("timeupdate", revealVideo, { once: true });
-    video.addEventListener("ended", function () {
-      seekAndPlay(getRandomStartTime());
-    });
+    function seekNativeVideo(video, randomStartTime) {
+      return new Promise(function (resolve) {
+        let resolved = false;
 
-    refreshVideoButton.addEventListener("click", function () {
-      seekAndPlay(getRandomStartTime());
-    });
-    video.addEventListener("error", function () {
-      console.log("Native video error:", video.error);
-      hideCoverFallback();
-    });
-
-    const randomStartTime = getRandomStartTime();
-    const supportsNativeHls = video.canPlayType("application/vnd.apple.mpegurl") !== "";
-
-    if (supportsNativeHls) {
-      startNativeHls(randomStartTime);
-    } else {
-      loadHlsJs()
-        .then(function () {
-          if (window.Hls && Hls.isSupported()) {
-            startHlsJs(randomStartTime);
-          } else {
-            console.log("HLS is not supported in this browser. Poster fallback is shown.");
-            videoCover.classList.add("hidden");
+        const done = function () {
+          if (resolved) {
+            return;
           }
+
+          resolved = true;
+          video.removeEventListener("seeked", done);
+          video.removeEventListener("canplay", done);
+          resolve();
+        };
+
+        video.addEventListener("seeked", done, { once: true });
+        video.addEventListener("canplay", done, { once: true });
+
+        try {
+          video.currentTime = randomStartTime;
+        } catch (error) {
+          console.log("Random seek failed, starting from the beginning:", error);
+          done();
+        }
+
+        window.setTimeout(done, 1500);
+      });
+    }
+
+    function attachSource(player, randomStartTime) {
+      const video = player.video;
+      const sourceUrl = getSelectedSourceUrl();
+      const supportsNativeHls = video.canPlayType("application/vnd.apple.mpegurl") !== "";
+
+      destroyPlayerSource(player);
+      configureVideo(video);
+
+      if (supportsNativeHls) {
+        video.src = sourceUrl;
+        video.load();
+
+        return new Promise(function (resolve) {
+          let metadataLoaded = false;
+
+          video.addEventListener("loadedmetadata", function () {
+            metadataLoaded = true;
+            seekNativeVideo(video, randomStartTime)
+              .then(function () {
+                return playVideo(video);
+              })
+              .then(function () {
+                return waitForReady(video);
+              })
+              .then(resolve);
+          }, { once: true });
+
+          window.setTimeout(function () {
+            if (!metadataLoaded) {
+              playVideo(video)
+                .then(function () {
+                  return waitForReady(video);
+                })
+                .then(resolve);
+            }
+          }, 3500);
+        });
+      }
+
+      return loadHlsJs().then(function () {
+        if (!window.Hls || !Hls.isSupported()) {
+          console.log("HLS is not supported in this browser. Poster fallback is shown.");
+          videoCover.classList.add("hidden");
+          return;
+        }
+
+        player.hls = new Hls({
+          startPosition: randomStartTime,
+          capLevelToPlayerSize: true,
+          maxBufferLength: 30,
+          backBufferLength: 30
+        });
+
+        player.hls.loadSource(sourceUrl);
+        player.hls.attachMedia(video);
+
+        player.hls.on(Hls.Events.ERROR, function (event, data) {
+          console.log("HLS error:", data);
+
+          if (data.fatal && player.hls) {
+            player.hls.destroy();
+            player.hls = null;
+          }
+        });
+
+        return new Promise(function (resolve) {
+          player.hls.on(Hls.Events.MANIFEST_PARSED, function () {
+            playVideo(video)
+              .then(function () {
+                return waitForReady(video);
+              })
+              .then(resolve);
+          });
+        });
+      });
+    }
+
+    function crossfadeTo(playerIndex) {
+      const nextPlayer = players[playerIndex];
+      const currentPlayer = players[activePlayerIndex];
+
+      nextPlayer.layer.classList.add("visible");
+      currentPlayer.layer.classList.remove("visible");
+      activePlayerIndex = playerIndex;
+      revealVideo();
+
+      window.setTimeout(function () {
+        if (currentPlayer !== nextPlayer) {
+          currentPlayer.video.pause();
+        }
+
+        isSwitching = false;
+      }, CROSSFADE_MS);
+    }
+
+    function switchToRandomPoint() {
+      if (isSwitching) {
+        return;
+      }
+
+      isSwitching = true;
+
+      const nextPlayerIndex = activePlayerIndex === 0 ? 1 : 0;
+      const randomStartTime = getRandomStartTime();
+
+      attachSource(players[nextPlayerIndex], randomStartTime)
+        .then(function () {
+          crossfadeTo(nextPlayerIndex);
         })
         .catch(function (error) {
-          console.log("Failed to load hls.js:", error);
-          videoCover.classList.add("hidden");
+          console.log("Failed to switch background video:", error);
+          isSwitching = false;
+          hideCoverFallback();
         });
     }
+
+    players.forEach(function (player) {
+      player.video.addEventListener("ended", switchToRandomPoint);
+      player.video.addEventListener("error", function () {
+        console.log("Native video error:", player.video.error);
+        hideCoverFallback();
+      });
+    });
+
+    refreshVideoButton.addEventListener("click", switchToRandomPoint);
+
+    qualityButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        const nextQuality = button.dataset.quality;
+
+        if (!QUALITY_SOURCES[nextQuality] || nextQuality === selectedQuality) {
+          return;
+        }
+
+        selectedQuality = nextQuality;
+        updateQualityButtons();
+        switchToRandomPoint();
+      });
+    });
+
+    window.addEventListener("resize", updateQualityRecommendation);
+
+    const connection = getConnectionInfo();
+    if (connection && typeof connection.addEventListener === "function") {
+      connection.addEventListener("change", updateQualityRecommendation);
+    }
+
+    attachSource(players[activePlayerIndex], getRandomStartTime())
+      .then(function () {
+        players[activePlayerIndex].layer.classList.add("visible");
+        revealVideo();
+      })
+      .catch(function (error) {
+        console.log("Failed to start background video:", error);
+        hideCoverFallback();
+      });
   </script>
 </body>
-
 </html>

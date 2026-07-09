@@ -1,13 +1,19 @@
 {
   "id": "video_001",
   "source": "RAW/BIG_VIDEO.mp4",
-  "playlist": "videos/video_001/segments/index.m3u8",
+  "originalSourceUrl": "https://youtu.be/3L0Ph8KV0Tk?si=qeZ-Bw7PQbuX1Kdj",
+  "playlist": "videos/video_001/segments/master.m3u8",
+  "compatPlaylist": "videos/video_001/segments/index.m3u8",
   "poster": "videos/video_001/segments/poster.jpg",
   "originalDurationSeconds": 675.7,
   "trimmedDurationSeconds": 655.7,
   "startTrimSeconds": 10,
   "endTrimSeconds": 10,
   "segmentSeconds": 10,
-  "width": 1280,
-  "crf": 24
+  "mode": "multi",
+  "variants": [
+    { "name": "480p", "width": 854, "bandwidth": 1100000, "crf": 27 },
+    { "name": "720p", "width": 1280, "bandwidth": 2800000, "crf": 24 },
+    { "name": "1080p", "width": 1920, "bandwidth": 5500000, "crf": 23 }
+  ]
 }
